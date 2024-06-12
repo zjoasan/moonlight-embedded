@@ -67,7 +67,7 @@ void* aml_display_thread(void* unused) {
       fprintf(stderr, "VIDIOC_DQBUF failed: %d\n", errno);
       break;
     }
-
+    // printf("about to display next frame\n"); DEBUG
     if (ioctl(videoFd, VIDIOC_QBUF, &vbuf) < 0) {
       fprintf(stderr, "VIDIOC_QBUF failed: %d\n", errno);
       break;
@@ -195,6 +195,7 @@ int aml_submit_decode_unit(PDECODE_UNIT decodeUnit) {
     entry = entry->next;
   } while (entry != NULL);
 
+  printf("aml_submit_decode_unit called, size = %d\n", length);
   codec_checkin_pts(&codecParam, decodeUnit->presentationTimeMs);
   while (length > 0) {
     api = codec_write(&codecParam, pkt_buf+written, length);
@@ -215,7 +216,13 @@ int aml_submit_decode_unit(PDECODE_UNIT decodeUnit) {
       length -= api;
     }
   }
+  // usleep(5000); DEBUG
 
+  // to get it working on iGPU intel gen 4
+  static int framecount = 0;
+  if (++framecount % 20 == 0) {
+    return DR_NEED_IDR;
+  }
   return length ? DR_NEED_IDR : DR_OK;
 }
 

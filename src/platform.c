@@ -110,7 +110,7 @@ void platform_start(enum platform system) {
   #ifdef HAVE_AML
   case AML:
     write_bool("/sys/class/graphics/fb0/blank", true);
-    write_bool("/sys/class/graphics/fb1/blank", true);
+    // write_bool("/sys/class/graphics/fb1/blank", true); Remarked since this causes blankscreen no Vero 4(k) and V
     write_bool("/sys/class/video/disable_video", false);
     break;
   #endif

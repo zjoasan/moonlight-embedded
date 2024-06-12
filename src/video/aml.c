@@ -195,7 +195,7 @@ int aml_submit_decode_unit(PDECODE_UNIT decodeUnit) {
     entry = entry->next;
   } while (entry != NULL);
 
-  printf("aml_submit_decode_unit called, size = %d\n", length);
+  // printf("aml_submit_decode_unit called, size = %d\n", length); DEBUG
   codec_checkin_pts(&codecParam, decodeUnit->presentationTimeMs);
   while (length > 0) {
     api = codec_write(&codecParam, pkt_buf+written, length);

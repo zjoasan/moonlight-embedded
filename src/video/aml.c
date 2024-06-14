@@ -43,6 +43,10 @@
 #define MAX_WRITE_ATTEMPTS 5
 #define EAGAIN_SLEEP_TIME 2 * 1000
 
+#ifndef FRAME_BASE_PATH_AMVIDEO
+  #define FRAME_BASE_PATH_AMVIDEO 4
+#endif
+
 static codec_para_t codecParam = { 0 };
 static pthread_t displayThread;
 static int videoFd = -1;
@@ -63,7 +67,7 @@ void* aml_display_thread(void* unused) {
       fprintf(stderr, "VIDIOC_DQBUF failed: %d\n", errno);
       break;
     }
-
+    // printf("about to display next frame\n"); DEBUG
     if (ioctl(videoFd, VIDIOC_QBUF, &vbuf) < 0) {
       fprintf(stderr, "VIDIOC_QBUF failed: %d\n", errno);
       break;
@@ -83,12 +87,16 @@ int aml_setup(int videoFormat, int width, int height, int redrawRate, void* cont
   codecParam.noblock            = 0;
   codecParam.stream_type        = STREAM_TYPE_ES_VIDEO;
   codecParam.am_sysinfo.param   = 0;
-
+  codecParam.decoder_type       = DECODER_TYPE_SINGLE_MODE;
+  codecParam.display_mode       = DISPLAY_MODE_AMVIDEO;
+  
 #ifdef STREAM_TYPE_FRAME
   codecParam.dec_mode           = STREAM_TYPE_FRAME;
 #endif
 
-#ifdef FRAME_BASE_PATH_AMLVIDEO_AMVIDEO
+#ifdef FRAME_BASE_PATH_AMVIDEO
+  codecParam.video_path         = FRAME_BASE_PATH_AMVIDEO;
+#elif FRAME_BASE_PATH_AMLVIDEO_AMVIDEO
   codecParam.video_path         = FRAME_BASE_PATH_AMLVIDEO_AMVIDEO;
 #endif
 
@@ -109,10 +117,12 @@ int aml_setup(int videoFormat, int width, int height, int redrawRate, void* cont
           codecParam.am_sysinfo.param = (void*) UCODE_IP_ONLY_PARAM;
     }
   } else if (videoFormat & VIDEO_FORMAT_MASK_H265) {
+    codecParam.decoder_type = DECODER_TYPE_FRAME_MODE;
     codecParam.video_type = VFORMAT_HEVC;
     codecParam.am_sysinfo.format = VIDEO_DEC_FORMAT_HEVC;
 #ifdef CODEC_TAG_AV1
   } else if (videoFormat & VIDEO_FORMAT_MASK_AV1) {
+    codecParam.decoder_type = DECODER_TYPE_FRAME_MODE;
     codecParam.video_type = VFORMAT_AV1;
     codecParam.am_sysinfo.format = VIDEO_DEC_FORMAT_AV1;
 #endif
@@ -185,6 +195,7 @@ int aml_submit_decode_unit(PDECODE_UNIT decodeUnit) {
     entry = entry->next;
   } while (entry != NULL);
 
+  // printf("aml_submit_decode_unit called, size = %d\n", length); DEBUG
   codec_checkin_pts(&codecParam, decodeUnit->presentationTimeMs);
   while (length > 0) {
     api = codec_write(&codecParam, pkt_buf+written, length);
@@ -205,7 +216,13 @@ int aml_submit_decode_unit(PDECODE_UNIT decodeUnit) {
       length -= api;
     }
   }
+  // usleep(5000); DEBUG
 
+  // to get it working on iGPU intel gen 4
+  static int framecount = 0;
+  if (++framecount % 20 == 0) {
+    return DR_NEED_IDR;
+  }
   return length ? DR_NEED_IDR : DR_OK;
 }
 

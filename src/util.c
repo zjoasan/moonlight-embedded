@@ -51,6 +51,18 @@ int read_file(char *path, char* output, int output_len) {
     return -1;
 }
 
+int write_file(char *path, char *output) {
+  int fd = open(path, O_WRONLY);
+
+  if(fd >= 0) {
+    write(fd, output, strlen(output));
+    close(fd);
+    return 0;
+  } else
+	  fprintf(stderr, "unable to write to %s\n", path);
+    return -1;
+}
+
 bool ensure_buf_size(void **buf, size_t *buf_size, size_t required_size) {
   if (*buf_size >= required_size)
     return false;
